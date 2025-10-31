@@ -1,6 +1,7 @@
 # 📅 Generátor HTML kalendářů
 
 Moderní webová aplikace pro generování přizpůsobitelných HTML kalendářů s českými svátky, jmeninami a prázdninami.
+Možnost tisku kalendáře do PDF přes Chrome/Edge ve formátu A3 a/nebo tisk přímo.
 
 ![.NET 9.0](https://img.shields.io/badge/.NET-9.0-blue)
 ![Blazor WebAssembly](https://img.shields.io/badge/Blazor-WebAssembly-blueviolet)
@@ -438,4 +439,4 @@ Pro dotazy nebo podporu prosím otevřete issue na GitHubu.
 
 ---
 
-**Poznámka**: Tato aplikace je určena pro generování českých kalendářů s lokálními daty o svátcích. UI podporuje výběr českého jazyka a regionální školní prázdniny pro české regiony.
+**Poznámka**: Tato aplikace je určena pro generování českých kalendářů s lokálními daty o svátcích a regionálních jarních školních prázdninách pro ČR.

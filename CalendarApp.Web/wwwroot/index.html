@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CalendarApp.Web</title>
+    <base href="/" />
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="CalendarApp.Web.styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+</head>
+
+<body>
+    <div id="app">
+        <svg class="loading-progress">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div class="loading-progress-text"></div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script>
+        // ===========================================================================
+        // CALENDAR DISPLAY
+        // ===========================================================================
+
+        /**
+         * Opens the generated calendar HTML in a new browser window/tab.
+         * Properly handles UTF-8 encoding to preserve Czech characters (č, ř, ž, etc.).
+         *
+         * @param {string} base64Content - Base64-encoded HTML string from the API
+         */
+        window.openCalendarInNewWindow = function (base64Content) {
+            // Step 1: Decode base64 to binary string
+            const binaryString = atob(base64Content);
+
+            // Step 2: Convert binary string to Uint8Array (byte array)
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Step 3: Decode UTF-8 bytes to proper text (handles Czech characters)
+            const decoder = new TextDecoder('utf-8');
+            const html = decoder.decode(bytes);
+
+            // Step 4: Open in new window and write HTML content
+            const newWindow = window.open('', '_blank');
+            if (newWindow) {
+                newWindow.document.open();
+                newWindow.document.write(html);
+                newWindow.document.close();
+            }
+        };
+
+        // ===========================================================================
+        // FILE DOWNLOAD
+        // ===========================================================================
+
+        /**
+         * Triggers a file download in the browser.
+         * Used for downloading the default template.
+         *
+         * @param {string} filename - Name of the file to download
+         * @param {string} base64Content - Base64-encoded file content
+         * @param {string} mimeType - MIME type (default: 'text/html')
+         */
+        window.downloadFile = function (filename, base64Content, mimeType) {
+            mimeType = mimeType || 'text/html';
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = 'data:' + mimeType + ';base64,' + base64Content;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // ===========================================================================
+        // IMAGE CROPPING (Cropper.js Integration)
+        // ===========================================================================
+
+        // Global singleton instance of Cropper.js
+        // Only one cropper can be active at a time
+        let cropperInstance = null;
+
+        /**
+         * Initializes Cropper.js on the specified image element.
+         * Allows user to select a crop area with a fixed aspect ratio.
+         *
+         * @param {string} imageElementId - ID of the <img> element to crop
+         * @param {number} aspectRatio - Fixed aspect ratio (e.g., 4.5 for 1800x400)
+         */
+        window.initializeCropper = function (imageElementId, aspectRatio) {
+            const image = document.getElementById(imageElementId);
+            if (image && !cropperInstance) {
+                cropperInstance = new Cropper(image, {
+                    aspectRatio: aspectRatio,      // 4.5:1 for panoramic format
+                    viewMode: 1,                   // Restrict crop box to canvas
+                    autoCropArea: 1,               // 100% initial crop area
+                    responsive: true,              // Re-render on window resize
+                    background: false,             // No grid background
+                    guides: true,                  // Show dashed lines
+                    center: true,                  // Show center indicator
+                    highlight: true,               // Highlight crop area
+                    cropBoxMovable: true,          // Allow moving crop box
+                    cropBoxResizable: true,        // Allow resizing crop box
+                    toggleDragModeOnDblclick: false, // Disable double-click toggle
+                });
+            }
+        };
+
+        /**
+         * Extracts the cropped image as a base64 JPEG.
+         * Automatically resizes to 1800x400px with high quality.
+         *
+         * @returns {string|null} Base64 string (without data URL prefix) or null
+         */
+        window.getCroppedImageBase64 = function () {
+            if (cropperInstance) {
+                const canvas = cropperInstance.getCroppedCanvas({
+                    width: 1800,                   // Fixed output width
+                    height: 400,                   // Fixed output height
+                    imageSmoothingEnabled: true,   // Enable anti-aliasing
+                    imageSmoothingQuality: 'high', // Best quality
+                });
+                // Convert to JPEG with 100% quality, return base64 (strip data URL prefix)
+                return canvas.toDataURL('image/jpeg', 1).split(',')[1];
+            }
+            return null;
+        };
+
+        /**
+         * Destroys the active Cropper.js instance and cleans up resources.
+         * Must be called before initializing a new cropper or when closing the UI.
+         */
+        window.destroyCropper = function () {
+            if (cropperInstance) {
+                cropperInstance.destroy();
+                cropperInstance = null;
+            }
+        };
+    </script>
+</body>
+
+</html>

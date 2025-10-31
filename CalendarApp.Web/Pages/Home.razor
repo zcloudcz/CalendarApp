@@ -1,0 +1,447 @@
+@page "/"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Generátor HTML Kalendáře</PageTitle>
+
+<div class="container mt-5">
+    <h1 class="mb-4">Generátor HTML Kalendáře</h1>
+
+    <EditForm Model="@model" OnValidSubmit="@HandleSubmit" class="needs-validation">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="alert alert-danger" />
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Rok</label>
+                <InputNumber @bind-Value="model.Year" class="form-control" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Měsíc</label>
+                <InputSelect @bind-Value="model.Month" class="form-select">
+                    <option value="1">Leden</option>
+                    <option value="2">Únor</option>
+                    <option value="3">Březen</option>
+                    <option value="4">Duben</option>
+                    <option value="5">Květen</option>
+                    <option value="6">Červen</option>
+                    <option value="7">Červenec</option>
+                    <option value="8">Srpen</option>
+                    <option value="9">Září</option>
+                    <option value="10">Říjen</option>
+                    <option value="11">Listopad</option>
+                    <option value="12">Prosinec</option>
+                </InputSelect>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Režim vykreslení</label>
+            <InputSelect @bind-Value="model.RenderMode" class="form-select">
+                <option value="0">Výchozí</option>
+                <option value="1">Dva sloupce</option>
+            </InputSelect>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Region (volitelné)</label>
+            <InputSelect @bind-Value="model.Region" class="form-select">
+                <option value="">-- Nevybráno --</option>
+                @foreach (var region in regions)
+                {
+                    <option value="@region">@region</option>
+                }
+            </InputSelect>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Obrázek</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="imageOption" id="imageUrl" checked="@(!useImageFile)" @onchange="@(async () => { useImageFile = false; await ResetImageCrop(); })">
+                <label class="form-check-label" for="imageUrl">
+                    URL obrázku
+                </label>
+            </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="radio" name="imageOption" id="imageFile" checked="@useImageFile" @onchange="@(() => useImageFile = true)">
+                <label class="form-check-label" for="imageFile">
+                    Nahrát soubor
+                </label>
+            </div>
+
+            @if (!useImageFile)
+            {
+                <InputText @bind-Value="model.ImageUrl" class="form-control" placeholder="https://example.com/image.jpg" />
+                <small class="form-text text-muted">Nebo nechte prázdné pro výchozí sezónní obrázek. Doporučené rozměry: 1800×400px</small>
+            }
+            else
+            {
+                <InputFile OnChange="@HandleImageSelected" class="form-control" accept="image/*" />
+                <small class="form-text text-muted">Doporučené rozměry: 1800×400px (panoramatický formát)</small>
+
+                @if (!string.IsNullOrEmpty(imagePreviewUrl) && !showCropper)
+                {
+                    <div class="mt-3">
+                        <div class="alert alert-info">
+                            <strong>Náhled obrázku:</strong> Obrázek bude automaticky upraven na 1800×400px
+                        </div>
+                        <img src="@imagePreviewUrl" class="img-fluid mb-2" style="max-height: 200px;" />
+                        <div>
+                            <button type="button" class="btn btn-sm btn-primary" @onclick="OpenCropper">
+                                <i class="bi bi-crop"></i> Upravit výřez
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" @onclick="ResetImageCrop">
+                                <i class="bi bi-x-circle"></i> Zrušit
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                @if (showCropper)
+                {
+                    <div class="mt-3 border p-3 bg-light">
+                        <h5>Upravit výřez obrázku</h5>
+                        <p class="text-muted">Vyberte oblast obrázku, která se použije v kalendáři (poměr stran 4.5:1)</p>
+                        <div style="max-height: 400px; overflow: hidden;">
+                            <img id="cropperImage" src="@imagePreviewUrl" style="max-width: 100%;" />
+                        </div>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-success" @onclick="ApplyCrop">
+                                <i class="bi bi-check-circle"></i> Použít výřez
+                            </button>
+                            <button type="button" class="btn btn-secondary" @onclick="CloseCropper">
+                                <i class="bi bi-x-circle"></i> Zrušit
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Template</label>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="templateOption" id="defaultTemplate" checked="@(!useCustomTemplate)" @onchange="@(() => useCustomTemplate = false)">
+                <label class="form-check-label" for="defaultTemplate">
+                    Výchozí template
+                </label>
+            </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="radio" name="templateOption" id="customTemplate" checked="@useCustomTemplate" @onchange="@(() => useCustomTemplate = true)">
+                <label class="form-check-label" for="customTemplate">
+                    Vlastní template
+                </label>
+            </div>
+            <small class="form-text text-muted">
+                <a href="#" @onclick="DownloadDefaultTemplate" @onclick:preventDefault="true">Stáhnout výchozí šablonu</a> pro úpravu
+            </small>
+
+            @if (useCustomTemplate)
+            {
+                <div class="mb-2 mt-2">
+                    <InputFile OnChange="@HandleTemplateSelected" class="form-control" accept=".txt,.html" />
+                    @if (templateFile != null)
+                    {
+                        <small class="form-text text-success">Vybraný template: @templateFile.Name</small>
+                    }
+                </div>
+                <small class="form-text text-muted">
+                    Nebo upravte template přímo:
+                </small>
+                <InputTextArea @bind-Value="model.TemplateContent" class="form-control" rows="10" placeholder="Vložte HTML template..." />
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        @if (isGenerating)
+        {
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Generuji...</span>
+                </div>
+                <p class="mt-2">Generuji kalendář...</p>
+            </div>
+        }
+
+        <div class="d-grid gap-2 mb-3">
+            <button type="submit" class="btn btn-primary btn-lg" disabled="@isGenerating">
+                @(isGenerating ? "Generuji..." : "Generovat kalendář")
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    // ===================================================================================
+    // STATE MANAGEMENT
+    // ===================================================================================
+
+    // Model bound to form inputs
+    private CalendarModel model = new() { Year = DateTime.Now.Year, Month = DateTime.Now.Month };
+
+    // UI state flags
+    private bool useImageFile = false;           // True if user wants to upload file vs. URL
+    private bool useCustomTemplate = false;      // True if user wants custom template vs. default
+    private bool isGenerating = false;           // True while waiting for API response
+    private bool showCropper = false;            // True when Cropper.js UI is visible
+
+    // File uploads
+    private IBrowserFile? imageFile;             // User-uploaded image file
+    private IBrowserFile? templateFile;          // User-uploaded template file
+
+    // Image cropping state
+    private string? imagePreviewUrl;             // Data URL for image preview
+    private string? croppedImageBase64;          // Base64 of cropped image (1800x400px)
+
+    // Data from API
+    private List<string> regions = new();        // List of regions for dropdown (loaded on init)
+
+    // Error handling
+    private string? errorMessage;                // Error message to display to user
+
+    // ===================================================================================
+    // IMAGE HANDLING & CROPPING
+    // ===================================================================================
+
+    /// <summary>
+    /// Handles image file selection by user.
+    /// Reads the file into memory and creates a data URL for preview.
+    /// Max file size: 10MB
+    /// </summary>
+    private async Task HandleImageSelected(InputFileChangeEventArgs e)
+    {
+        imageFile = e.File;
+        croppedImageBase64 = null;  // Reset any previous crop
+        showCropper = false;
+
+        if (imageFile != null)
+        {
+            // Read file into memory and create data URL for preview
+            var buffer = new byte[imageFile.Size];
+            await imageFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).ReadAsync(buffer);
+            var base64 = Convert.ToBase64String(buffer);
+            imagePreviewUrl = $"data:{imageFile.ContentType};base64,{base64}";
+        }
+        else
+        {
+            imagePreviewUrl = null;
+        }
+    }
+
+    /// <summary>
+    /// Opens the Cropper.js interface for selecting image crop area.
+    /// Uses fixed aspect ratio of 4.5:1 (1800x400px).
+    /// </summary>
+    private async Task OpenCropper()
+    {
+        showCropper = true;
+        StateHasChanged();
+        await Task.Delay(100);  // Wait for DOM to render the <img> element
+        await JSRuntime.InvokeVoidAsync("initializeCropper", "cropperImage", 4.5);
+    }
+
+    /// <summary>
+    /// Applies the crop selection, generating a 1800x400px JPEG.
+    /// The cropped image is stored as base64 and used for the calendar header.
+    /// </summary>
+    private async Task ApplyCrop()
+    {
+        croppedImageBase64 = await JSRuntime.InvokeAsync<string>("getCroppedImageBase64");
+        await JSRuntime.InvokeVoidAsync("destroyCropper");
+        showCropper = false;
+
+        // Update preview to show the cropped result
+        if (!string.IsNullOrEmpty(croppedImageBase64))
+        {
+            imagePreviewUrl = $"data:image/jpeg;base64,{croppedImageBase64}";
+        }
+    }
+
+    private async Task CloseCropper()
+    {
+        await JSRuntime.InvokeVoidAsync("destroyCropper");
+        showCropper = false;
+    }
+
+    private async Task ResetImageCrop()
+    {
+        if (showCropper)
+        {
+            await JSRuntime.InvokeVoidAsync("destroyCropper");
+        }
+        imageFile = null;
+        imagePreviewUrl = null;
+        showCropper = false;
+        croppedImageBase64 = null;
+    }
+
+    private void HandleTemplateSelected(InputFileChangeEventArgs e)
+    {
+        templateFile = e.File;
+    }
+
+    // ===================================================================================
+    // LIFECYCLE & INITIALIZATION
+    // ===================================================================================
+
+    /// <summary>
+    /// Component initialization - fetches the list of regions from API.
+    /// This populates the region dropdown on page load.
+    /// Falls back to hardcoded list if API call fails.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<RegionsResponse>("https://localhost:7109/api/calendar/regions");
+            if (response?.regions != null)
+            {
+                regions = response.regions;
+            }
+        }
+        catch
+        {
+            // Fallback regions if API is unavailable
+            regions = new List<string> { "Blansko", "Brno-město", "Brno-venkov", "Praha" };
+        }
+    }
+
+    private async Task DownloadDefaultTemplate()
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<TemplateResponse>("https://localhost:7109/api/calendar/default-template");
+            if (response?.template != null)
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(response.template);
+                var base64 = Convert.ToBase64String(bytes);
+                await JSRuntime.InvokeVoidAsync("downloadFile", "template.html", base64, "text/html");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při stahování šablony: {ex.Message}";
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+            StateHasChanged();
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(model.Year.ToString()), "Year");
+            content.Add(new StringContent(model.Month.ToString()), "Month");
+            content.Add(new StringContent(((int)model.RenderMode).ToString()), "RenderMode");
+
+            if (!string.IsNullOrEmpty(model.Region))
+                content.Add(new StringContent(model.Region), "Region");
+
+            if (useImageFile && !string.IsNullOrEmpty(croppedImageBase64))
+            {
+                // Use cropped image
+                var imageBytes = Convert.FromBase64String(croppedImageBase64);
+                var imageContent = new ByteArrayContent(imageBytes);
+                imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+                content.Add(imageContent, "ImageFile", "cropped-image.jpg");
+            }
+            else if (useImageFile && imageFile != null)
+            {
+                // Use original image if not cropped
+                var imageContent = new StreamContent(imageFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+                imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(imageFile.ContentType);
+                content.Add(imageContent, "ImageFile", imageFile.Name);
+            }
+            else if (!string.IsNullOrEmpty(model.ImageUrl))
+            {
+                content.Add(new StringContent(model.ImageUrl), "ImageUrl");
+            }
+
+            if (useCustomTemplate)
+            {
+                if (templateFile != null)
+                {
+                    var templateContent = new StreamContent(templateFile.OpenReadStream(maxAllowedSize: 1024 * 1024));
+                    templateContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+                    content.Add(templateContent, "TemplateFile", templateFile.Name);
+                }
+                else if (!string.IsNullOrEmpty(model.TemplateContent))
+                {
+                    content.Add(new StringContent(model.TemplateContent), "TemplateContent");
+                }
+            }
+
+            var response = await Http.PostAsync("https://localhost:7109/api/calendar/generate", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var html = await response.Content.ReadAsStringAsync();
+                var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+                var base64 = Convert.ToBase64String(bytes);
+
+                // Open in new window
+                await JSRuntime.InvokeVoidAsync("openCalendarInNewWindow", base64);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorObject = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(errorContent);
+                    errorMessage = errorObject?.error ?? $"Chyba při generování: {response.StatusCode}";
+                }
+                catch
+                {
+                    errorMessage = $"Chyba při generování: {response.StatusCode}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    public class CalendarModel
+    {
+        [Required]
+        [Range(2000, 2100)]
+        public int Year { get; set; }
+
+        [Required]
+        [Range(1, 12)]
+        public int Month { get; set; }
+
+        public string? ImageUrl { get; set; }
+        public string? TemplateContent { get; set; }
+        public int RenderMode { get; set; }
+        public string? Region { get; set; }
+    }
+
+    public class ErrorResponse
+    {
+        public string? error { get; set; }
+    }
+
+    public class RegionsResponse
+    {
+        public List<string>? regions { get; set; }
+    }
+
+    public class TemplateResponse
+    {
+        public string? template { get; set; }
+    }
+}

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Calendar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .calendar-container {
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .calendar-header {
+            /*background: linear-gradient(135deg, #6B46C1, #8B5CF6);*/
+            color: white;
+            
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .calendar-body {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+            background: white;
+        }
+
+        .calendar-row {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #e5e5e5;
+            transition: background-color 0.2s ease;
+        }
+
+        .calendar-row.day-alt {
+            background-color: #f8f4ff;
+        }
+
+        .calendar-row:nth-child(even) {
+            /*background-color: #e9d5ff;*/
+        }
+
+        .calendar-row:hover {
+            background-color: #ddd6fe;
+        }
+
+        .calendar-row:last-child {
+            border-bottom: none;
+        }
+
+        .day-number {
+            width: 60px;
+            padding: 12px 16px;
+            font-weight: bold;
+            color: #4c1d95;
+            text-align: center;
+            border-right: 1px solid #e5e5e5;
+        }
+
+        .day-name {
+            width: 80px;
+            padding: 12px 16px;
+            color: #6b7280;
+            font-weight: 500;
+            border-right: 1px solid #e5e5e5;
+        }
+
+        .day-event {
+            flex: 1;
+            padding: 12px 16px;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .holiday {
+            color: #dc2626;
+            font-weight: 600;
+text-align: right;
+        }
+
+.month-title {
+	font-size: 60px;
+    position: absolute;
+    top: 90px;
+    right: 90px;
+}
+
+.weekend {
+ background-color: #e9c5dd !important;
+}
+
+.date-note {
+	font-size: 11px;
+	color: #000;
+}
+
+        /* Responsive design */
+        @media (max-width: 480px) {
+            .calendar-container {
+                max-width: 100%;
+                margin: 0;
+            }
+            
+            .day-number {
+                width: 50px;
+                padding: 10px 12px;
+            }
+            
+            .day-name {
+                width: 70px;
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+            
+            .day-event {
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calendar-container">
+        <div class="calendar-header">
+<div class="image-section">
+ <img src="@image-url" class="month-image" />
+</div>
+<div class="month-title">@month-name @year</div>
+        </div>
+        <div class="calendar-body">
+@foreach-begin
+            <div class="calendar-row @alt">
+                <div class="day-number">@date
+<div class="date-note">@date-note</div>
+</div>
+                <div class="day-name">@date-name</div>
+                <div class="day-event holiday">@date-holidays</div>
+                <div class="day-event holiday">@date-sholidays</div>
+                <div class="day-event holiday">@date-specialday</div>
+                <div class="day-event holiday">@date-interday</div>
+            </div>
+@foreach-end
+        </div>
+    </div>
+</body>
+</html>

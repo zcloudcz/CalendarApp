@@ -54,6 +54,157 @@
             </InputSelect>
         </div>
 
+        <!-- Template Selection Section -->
+        <div class="mb-3">
+            <label class="form-label">Šablona designu</label>
+            <button type="button" class="btn btn-sm btn-info mb-2" @onclick="LoadTemplates">
+                @if (templates.Any())
+                {
+                    <span>Načteno (@templates.Count)</span>
+                }
+                else
+                {
+                    <span>Načíst dostupné šablony</span>
+                }
+            </button>
+
+            @if (templates.Any())
+            {
+                <div class="row g-3">
+                    @foreach (var template in templates)
+                    {
+                        var isSelected = model.TemplateId == template.Id;
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 @(isSelected ? "border-primary" : "")"
+                                 style="cursor: pointer;"
+                                 @onclick="@(() => SelectTemplate(template.Id))">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        @if (isSelected)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-primary"></i>
+                                        }
+                                        @template.Name
+                                    </h6>
+                                    <p class="card-text small text-muted">@template.Description</p>
+                                    <div class="mt-2">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="@(async () => await DownloadTemplate(template.Id))">
+                                            <i class="bi bi-download"></i> Stáhnout
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(model.TemplateId))
+                {
+                    <div class="alert alert-info mt-3">
+                        <strong>Vybraná šablona:</strong> @templates.FirstOrDefault(t => t.Id == model.TemplateId)?.Name
+                        <button type="button" class="btn btn-sm btn-link" @onclick="@(() => model.TemplateId = null)">Zrušit výběr</button>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Special Days Management Section -->
+        <div class="mb-3">
+            <label class="form-label">Správa speciálních dnů</label>
+            <button type="button" class="btn btn-sm btn-secondary mb-2" @onclick="LoadSpecialDays">
+                Načíst speciální dny pro vybraný měsíc
+            </button>
+
+            @if (isLoadingSpecialDays)
+            {
+                <div class="text-center">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Načítám...</span>
+                    </div>
+                    <span class="ms-2">Načítám speciální dny...</span>
+                </div>
+            }
+
+            @if (specialDaysLoaded && !isLoadingSpecialDays)
+            {
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <strong>Speciální dny v kalendáři (kliknutím vyloučíte)</strong>
+                    </div>
+                    <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                        @if (!allSpecialDays.Any())
+                        {
+                            <p class="text-muted">Pro tento měsíc nebyly nalezeny žádné speciální dny.</p>
+                        }
+                        else
+                        {
+                            @foreach (var day in allSpecialDays.OrderBy(d => d.Date))
+                            {
+                                var isExcluded = excludedDays.Any(e => e.Date == day.Date && e.Type == day.Type && e.Name == day.Name);
+                                <div class="form-check">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           checked="@(!isExcluded)"
+                                           @onchange="@(() => ToggleExclusion(day))"
+                                           id="@($"day_{day.Date}_{day.Type}")">
+                                    <label class="form-check-label" for="@($"day_{day.Date}_{day.Type}")">
+                                        <strong>@day.Date</strong> - @day.Name
+                                        <span class="badge bg-secondary">@GetTypeLabel(day.Type)</span>
+                                        @if (!string.IsNullOrEmpty(day.Region))
+                                        {
+                                            <span class="badge bg-info">@day.Region</span>
+                                        }
+                                    </label>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <strong>Přidat vlastní speciální den</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <InputDate @bind-Value="newCustomDayDate" class="form-control"
+                                       min="@($"{model.Year}-{model.Month:D2}-01")"
+                                       max="@($"{model.Year}-{model.Month:D2}-{DateTime.DaysInMonth(model.Year, model.Month):D2}")" />
+                            </div>
+                            <div class="col-md-6">
+                                <InputText @bind-Value="newCustomDayName" class="form-control" placeholder="Název speciálního dne" />
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary w-100" @onclick="AddCustomDay">Přidat</button>
+                            </div>
+                        </div>
+
+                        @if (customDays.Any())
+                        {
+                            <div class="mt-3">
+                                <strong>Přidané vlastní dny:</strong>
+                                <ul class="list-group mt-2">
+                                    @foreach (var day in customDays.OrderBy(d => d.Date))
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <span><strong>@day.Date</strong> - @day.Name</span>
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="@(() => RemoveCustomDay(day))">
+                                                Odstranit
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
         <div class="mb-3">
             <label class="form-label">Obrázek</label>
             <div class="form-check">
@@ -167,10 +318,17 @@
             </div>
         }
 
-        <div class="d-grid gap-2 mb-3">
-            <button type="submit" class="btn btn-primary btn-lg" disabled="@isGenerating">
-                @(isGenerating ? "Generuji..." : "Generovat kalendář")
-            </button>
+        <div class="row gap-2 mb-3">
+            <div class="col">
+                <button type="submit" class="btn btn-primary btn-lg w-100" disabled="@isGenerating">
+                    @(isGenerating ? "Generuji..." : "Generovat kalendář")
+                </button>
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success btn-lg w-100" disabled="@isGenerating" @onclick="HandleSubmitAndDownload">
+                    @(isGenerating ? "Generuji..." : "Generovat a uložit")
+                </button>
+            </div>
         </div>
     </EditForm>
 </div>
@@ -199,6 +357,20 @@
 
     // Data from API
     private List<string> regions = new();        // List of regions for dropdown (loaded on init)
+
+    // Special days management
+    private List<SpecialDayDto> allSpecialDays = new();      // All special days for the selected month
+    private List<SpecialDayDto> excludedDays = new();        // Days that user wants to exclude
+    private List<SpecialDayDto> customDays = new();          // Custom days added by user
+    private bool specialDaysLoaded = false;                  // True if special days have been loaded
+    private bool isLoadingSpecialDays = false;               // True while loading special days
+
+    // Custom day input fields
+    private DateTime? newCustomDayDate;                      // Date input for new custom day
+    private string newCustomDayName = "";                    // Name input for new custom day
+
+    // Template management
+    private List<TemplateInfo> templates = new();            // List of available templates
 
     // Error handling
     private string? errorMessage;                // Error message to display to user
@@ -328,6 +500,181 @@
         }
     }
 
+    // ===================================================================================
+    // SPECIAL DAYS MANAGEMENT
+    // ===================================================================================
+
+    /// <summary>
+    /// Loads special days for the selected year, month, and region from the API.
+    /// Populates the allSpecialDays list for user to manage (exclude or add custom days).
+    /// </summary>
+    private async Task LoadSpecialDays()
+    {
+        try
+        {
+            isLoadingSpecialDays = true;
+            errorMessage = null;
+            StateHasChanged();
+
+            // Build API URL with query parameters
+            var url = $"https://localhost:7109/api/calendar/special-days?year={model.Year}&month={model.Month}";
+            if (!string.IsNullOrEmpty(model.Region))
+            {
+                url += $"&region={Uri.EscapeDataString(model.Region)}";
+            }
+
+            var response = await Http.GetFromJsonAsync<SpecialDaysResponse>(url);
+
+            // Combine all types of special days into one list
+            allSpecialDays = new List<SpecialDayDto>();
+            if (response?.holidays != null) allSpecialDays.AddRange(response.holidays);
+            if (response?.schoolHolidays != null) allSpecialDays.AddRange(response.schoolHolidays);
+            if (response?.specialDays != null) allSpecialDays.AddRange(response.specialDays);
+            if (response?.internationalDays != null) allSpecialDays.AddRange(response.internationalDays);
+
+            specialDaysLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při načítání speciálních dnů: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingSpecialDays = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Toggles exclusion of a special day. When user unchecks a day, it's added to exclusions.
+    /// When they check it again, it's removed from exclusions.
+    /// </summary>
+    private void ToggleExclusion(SpecialDayDto day)
+    {
+        var existing = excludedDays.FirstOrDefault(e =>
+            e.Date == day.Date && e.Type == day.Type && e.Name == day.Name);
+
+        if (existing != null)
+        {
+            // Day is currently excluded - remove from exclusions (user wants to include it)
+            excludedDays.Remove(existing);
+        }
+        else
+        {
+            // Day is not excluded - add to exclusions (user wants to remove it)
+            excludedDays.Add(day);
+        }
+    }
+
+    /// <summary>
+    /// Adds a new custom special day based on user input.
+    /// Validates that date and name are provided.
+    /// </summary>
+    private void AddCustomDay()
+    {
+        if (!newCustomDayDate.HasValue || string.IsNullOrWhiteSpace(newCustomDayName))
+        {
+            errorMessage = "Vyplňte datum a název speciálního dne.";
+            return;
+        }
+
+        // Create new custom day
+        var customDay = new SpecialDayDto
+        {
+            Date = newCustomDayDate.Value.ToString("yyyy-MM-dd"),
+            Name = newCustomDayName.Trim(),
+            Type = "custom"
+        };
+
+        customDays.Add(customDay);
+
+        // Clear input fields
+        newCustomDayDate = null;
+        newCustomDayName = "";
+        errorMessage = null;
+    }
+
+    /// <summary>
+    /// Removes a custom special day from the list.
+    /// </summary>
+    private void RemoveCustomDay(SpecialDayDto day)
+    {
+        customDays.Remove(day);
+    }
+
+    // ===================================================================================
+    // TEMPLATE MANAGEMENT
+    // ===================================================================================
+
+    /// <summary>
+    /// Loads available templates from the API.
+    /// </summary>
+    private async Task LoadTemplates()
+    {
+        try
+        {
+            errorMessage = null;
+            var response = await Http.GetFromJsonAsync<TemplatesResponse>("https://localhost:7109/api/calendar/templates");
+            if (response?.templates != null)
+            {
+                templates = response.templates;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při načítání šablon: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Selects a template by ID.
+    /// </summary>
+    private void SelectTemplate(string templateId)
+    {
+        model.TemplateId = templateId;
+        // Disable custom template mode when selecting from library
+        useCustomTemplate = false;
+    }
+
+    /// <summary>
+    /// Downloads a template for editing.
+    /// </summary>
+    private async Task DownloadTemplate(string templateId)
+    {
+        try
+        {
+            var response = await Http.GetAsync($"https://localhost:7109/api/calendar/templates/{templateId}/download");
+            if (response.IsSuccessStatusCode)
+            {
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                var base64 = Convert.ToBase64String(bytes);
+                var fileName = $"sablona-{templateId}.html";
+                await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64, "text/html");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba při stahování šablony: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Returns a user-friendly label for special day types.
+    /// Used for displaying badges in the UI.
+    /// </summary>
+    private string GetTypeLabel(string type)
+    {
+        return type switch
+        {
+            "holiday" => "Státní svátek",
+            "schoolHoliday" => "Prázdniny",
+            "specialDay" => "Významný den",
+            "internationalDay" => "Mezinárodní den",
+            "custom" => "Vlastní",
+            _ => type
+        };
+    }
+
     private async Task HandleSubmit()
     {
         try
@@ -343,6 +690,20 @@
 
             if (!string.IsNullOrEmpty(model.Region))
                 content.Add(new StringContent(model.Region), "Region");
+
+            // Add excluded days as JSON
+            if (excludedDays.Any())
+            {
+                var excludedJson = System.Text.Json.JsonSerializer.Serialize(excludedDays);
+                content.Add(new StringContent(excludedJson), "ExcludedDays");
+            }
+
+            // Add custom days as JSON
+            if (customDays.Any())
+            {
+                var customJson = System.Text.Json.JsonSerializer.Serialize(customDays);
+                content.Add(new StringContent(customJson), "CustomDays");
+            }
 
             if (useImageFile && !string.IsNullOrEmpty(croppedImageBase64))
             {
@@ -364,6 +725,7 @@
                 content.Add(new StringContent(model.ImageUrl), "ImageUrl");
             }
 
+            // Template handling - priority: custom file > custom content > template ID
             if (useCustomTemplate)
             {
                 if (templateFile != null)
@@ -376,6 +738,10 @@
                 {
                     content.Add(new StringContent(model.TemplateContent), "TemplateContent");
                 }
+            }
+            else if (!string.IsNullOrEmpty(model.TemplateId))
+            {
+                content.Add(new StringContent(model.TemplateId), "TemplateId");
             }
 
             var response = await Http.PostAsync("https://localhost:7109/api/calendar/generate", content);
@@ -414,6 +780,117 @@
         }
     }
 
+    /// <summary>
+    /// Handles calendar generation with automatic download (saves to user's Downloads folder).
+    /// Similar to HandleSubmit but triggers file download instead of opening in new window.
+    /// </summary>
+    private async Task HandleSubmitAndDownload()
+    {
+        try
+        {
+            isGenerating = true;
+            errorMessage = null;
+            StateHasChanged();
+
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(model.Year.ToString()), "Year");
+            content.Add(new StringContent(model.Month.ToString()), "Month");
+            content.Add(new StringContent(((int)model.RenderMode).ToString()), "RenderMode");
+
+            if (!string.IsNullOrEmpty(model.Region))
+                content.Add(new StringContent(model.Region), "Region");
+
+            // Add excluded days as JSON
+            if (excludedDays.Any())
+            {
+                var excludedJson = System.Text.Json.JsonSerializer.Serialize(excludedDays);
+                content.Add(new StringContent(excludedJson), "ExcludedDays");
+            }
+
+            // Add custom days as JSON
+            if (customDays.Any())
+            {
+                var customJson = System.Text.Json.JsonSerializer.Serialize(customDays);
+                content.Add(new StringContent(customJson), "CustomDays");
+            }
+
+            if (useImageFile && !string.IsNullOrEmpty(croppedImageBase64))
+            {
+                var imageBytes = Convert.FromBase64String(croppedImageBase64);
+                var imageContent = new ByteArrayContent(imageBytes);
+                imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+                content.Add(imageContent, "ImageFile", "cropped-image.jpg");
+            }
+            else if (useImageFile && imageFile != null)
+            {
+                var imageContent = new StreamContent(imageFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+                imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(imageFile.ContentType);
+                content.Add(imageContent, "ImageFile", imageFile.Name);
+            }
+            else if (!string.IsNullOrEmpty(model.ImageUrl))
+            {
+                content.Add(new StringContent(model.ImageUrl), "ImageUrl");
+            }
+
+            // Template handling - priority: custom file > custom content > template ID
+            if (useCustomTemplate)
+            {
+                if (templateFile != null)
+                {
+                    var templateContent = new StreamContent(templateFile.OpenReadStream(maxAllowedSize: 1024 * 1024));
+                    templateContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+                    content.Add(templateContent, "TemplateFile", templateFile.Name);
+                }
+                else if (!string.IsNullOrEmpty(model.TemplateContent))
+                {
+                    content.Add(new StringContent(model.TemplateContent), "TemplateContent");
+                }
+            }
+            else if (!string.IsNullOrEmpty(model.TemplateId))
+            {
+                content.Add(new StringContent(model.TemplateId), "TemplateId");
+            }
+
+            var response = await Http.PostAsync("https://localhost:7109/api/calendar/generate", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var html = await response.Content.ReadAsStringAsync();
+                var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+                var base64 = Convert.ToBase64String(bytes);
+
+                // Generate filename based on month and year
+                var monthName = new DateTime(model.Year, model.Month, 1).ToString("MMMM", new System.Globalization.CultureInfo("cs-CZ"));
+                var filename = $"{monthName}-{model.Year}.html";
+
+                // Download file instead of opening in new window
+                await JSRuntime.InvokeVoidAsync("downloadCalendarFile", filename, base64);
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorObject = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(errorContent);
+                    errorMessage = errorObject?.error ?? $"Chyba při generování: {response.StatusCode}";
+                }
+                catch
+                {
+                    errorMessage = $"Chyba při generování: {response.StatusCode}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
     public class CalendarModel
     {
         [Required]
@@ -426,7 +903,21 @@
 
         public string? ImageUrl { get; set; }
         public string? TemplateContent { get; set; }
+        public string? TemplateId { get; set; }
         public int RenderMode { get; set; }
+        public string? Region { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for special days - matches the backend SpecialDayDto class.
+    /// Used for API communication and managing excluded/custom days.
+    /// </summary>
+    public class SpecialDayDto
+    {
+        public required string Date { get; set; }
+        public string? EndDate { get; set; }
+        public required string Name { get; set; }
+        public required string Type { get; set; }
         public string? Region { get; set; }
     }
 
@@ -443,5 +934,37 @@
     public class TemplateResponse
     {
         public string? template { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for special days API endpoint.
+    /// Contains all types of special days for a given month.
+    /// </summary>
+    public class SpecialDaysResponse
+    {
+        public List<SpecialDayDto>? holidays { get; set; }
+        public List<SpecialDayDto>? schoolHolidays { get; set; }
+        public List<SpecialDayDto>? specialDays { get; set; }
+        public List<SpecialDayDto>? internationalDays { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for templates API endpoint.
+    /// </summary>
+    public class TemplatesResponse
+    {
+        public List<TemplateInfo>? templates { get; set; }
+    }
+
+    /// <summary>
+    /// Template metadata.
+    /// </summary>
+    public class TemplateInfo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string PreviewImage { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
     }
 }

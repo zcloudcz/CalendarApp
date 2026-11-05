@@ -55,6 +55,9 @@ namespace CalendarAppCore
         /// <summary>Direct template content as a string (for web app usage - allows user uploads)</summary>
         public string TemplateContent { get; set; }
 
+        /// <summary>Template ID from the template library (default, minimal, colorful, classic, compact)</summary>
+        public string TemplateId { get; set; }
+
         /// <summary>
         /// URL or file path to the header image.
         /// Recommended size: 1800×400px (panoramic format, aspect ratio 4.5:1)
@@ -81,6 +84,48 @@ namespace CalendarAppCore
         /// If set, only shows school holidays for this specific region.
         /// </summary>
         public string Region { get; set; }
+
+        /// <summary>
+        /// List of dates to exclude from the calendar (user can remove existing special days).
+        /// Each entry contains date and type of the special day to exclude.
+        /// </summary>
+        public List<ExcludedDay> ExcludedDays { get; set; } = new();
+
+        /// <summary>
+        /// List of custom special days added by the user (one-time additions).
+        /// These will be displayed in the calendar alongside API-fetched special days.
+        /// </summary>
+        public List<CustomDay> CustomDays { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Represents a special day that should be excluded from the calendar display.
+    /// </summary>
+    public class ExcludedDay
+    {
+        /// <summary>Date to exclude (format: yyyy-MM-dd)</summary>
+        public DateTime Date { get; set; }
+
+        /// <summary>Type of special day to exclude: "holiday", "schoolHoliday", "specialDay", "internationalDay"</summary>
+        public string Type { get; set; }
+
+        /// <summary>Name of the special day (for identification purposes)</summary>
+        public string Name { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a custom special day added by the user.
+    /// </summary>
+    public class CustomDay
+    {
+        /// <summary>Date of the custom special day</summary>
+        public DateTime Date { get; set; }
+
+        /// <summary>Name/description of the custom special day</summary>
+        public string Name { get; set; }
+
+        /// <summary>Type/category (default: "custom")</summary>
+        public string Type { get; set; } = "custom";
     }
 
     /// <summary>

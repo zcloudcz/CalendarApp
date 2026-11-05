@@ -85,6 +85,39 @@
             document.body.removeChild(link);
         };
 
+        /**
+         * Downloads a calendar HTML file to the user's Downloads folder.
+         * Properly handles UTF-8 encoding to preserve Czech characters.
+         * Used by the "Generovat a uložit" button.
+         *
+         * @param {string} filename - Name of the file to save (e.g., "leden-2025.html")
+         * @param {string} base64Content - Base64-encoded HTML string from the API
+         */
+        window.downloadCalendarFile = function (filename, base64Content) {
+            // Step 1: Decode base64 to binary string
+            const binaryString = atob(base64Content);
+
+            // Step 2: Convert binary string to Uint8Array (byte array)
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Step 3: Create a Blob with UTF-8 encoding
+            const blob = new Blob([bytes], { type: 'text/html;charset=utf-8' });
+
+            // Step 4: Create download link and trigger download
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+
+            // Step 5: Cleanup
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        };
+
         // ===========================================================================
         // IMAGE CROPPING (Cropper.js Integration)
         // ===========================================================================
